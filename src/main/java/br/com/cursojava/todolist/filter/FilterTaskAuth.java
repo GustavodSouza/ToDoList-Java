@@ -26,31 +26,37 @@ public class FilterTaskAuth extends OncePerRequestFilter {
         // Capta a autenticação
         // Valida usuario e senha
         
-        var authorization = request.getHeader("Authorization");
-        var authEncode = authorization.substring("Basic".length()).trim();
-        
-        byte[] authDecode = Base64.getDecoder().decode(authEncode);
+        var servletPath = request.getServletPath();
 
-        var authString = new String(authDecode);
-
-        String[] credentials = authString.split(":");
-
-        String userName = credentials[0];
-        String password = credentials[1];
-
-        var user = this.iUserRepository.findByUsername(userName);
-
-        if (user == null) {
-            response.sendError(401); // Sem Autorização
-        } else {
-            var passwordVerifyer = BCrypt.verifyer().verify(password.toCharArray(), user.getPassword());
+        if (servletPath.startsWith("/tasks/")) {
+            var authorization = request.getHeader("Authorization");
+            var authEncode = authorization.substring("Basic".length()).trim();
             
-            if (passwordVerifyer.verified) {
-                filterChain.doFilter(request, response); // Autorizado
-            } else {
+            byte[] authDecode = Base64.getDecoder().decode(authEncode);
+    
+            var authString = new String(authDecode);
+    
+            String[] credentials = authString.split(":");
+    
+            String userName = credentials[0];
+            String password = credentials[1];
+    
+            var user = this.iUserRepository.findByUsername(userName);
+    
+            if (user == null) {
                 response.sendError(401); // Sem Autorização
+            } else {
+                var passwordVerifyer = BCrypt.verifyer().verify(password.toCharArray(), user.getPassword());
+                
+                if (passwordVerifyer.verified) {
+                    request.setAttribute("idUser", user.getId());
+                    filterChain.doFilter(request, response); // Autorizado
+                } else {
+                    response.sendError(401); // Sem Autorização
+                }
             }
+        } else {
+            filterChain.doFilter(request, response); // Autorizado
         }
-
     }
 }
